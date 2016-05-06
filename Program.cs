@@ -30,9 +30,15 @@ using System.Collections.Generic;
 
 namespace GLWrapperGen
 {	
-
 	class MainClass
 	{
+		string[] ExtPrefixes = {
+			"ARB", "NV", "NVX", "ATI", "3DLABS", "SUN", "SGI", "SGIX",
+			"SGIS", "INTEL", "3DFX", "IBM", "MESA", "GREMEDY",
+			"OML", "OES", "PGI", "I3D", "INGR", "MTX"};
+
+		string[] PlatformPrefixes = { "WGL", "GLX", "AGL" };
+
 		static string strBaseNameSpace = "GTS";
 
 		static Dictionary<string, string> GLTypeDic = new Dictionary<string, string>();
@@ -45,8 +51,7 @@ namespace GLWrapperGen
 				Directory.Delete ("generated", true);
 			Directory.CreateDirectory ("generated");
 
-			XmlDocument glspec = new XmlDocument();
-			glspec.Load ("gl.xml");
+
 
 			buildGLTypeDic ();
 			//processEnums(glspec);

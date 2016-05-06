@@ -41,6 +41,9 @@
     <Compile Include="GLFunction.cs" />
     <Compile Include="GLType.cs" />
     <Compile Include="GLParameter.cs" />
+    <Compile Include="GLRegistery.cs" />
+    <Compile Include="GLGroup.cs" />
+    <Compile Include="GLEnumerant.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <ItemGroup>

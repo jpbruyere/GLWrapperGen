@@ -24,6 +24,9 @@ namespace GLWrapperGen
 {
 	public class GLFunction
 	{
+		public string Name;
+		public GLType ReturnType;
+
 		public GLFunction ()
 		{
 		}

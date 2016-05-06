@@ -19,14 +19,18 @@
 //  You should have received a copy of the GNU General Public License
 //  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 using System;
+using System.Collections.Generic;
 
 namespace GLWrapperGen
 {
+	[Serializable()]
 	public class GLGroup
 	{
-		public GLGroup ()
-		{
-		}
+		public string Name;
+		public string Comment;
+		public List<GLEnumerant> Enums;
+
+		public GLGroup (){}
 	}
 }
 

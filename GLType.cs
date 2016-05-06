@@ -24,6 +24,11 @@ namespace GLWrapperGen
 {
 	public class GLType
 	{
+		public string Api;
+		public string Requires;
+		public string Name;
+		public string Type;
+
 		public GLType ()
 		{
 		}

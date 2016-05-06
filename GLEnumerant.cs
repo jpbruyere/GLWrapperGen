@@ -22,11 +22,17 @@ using System;
 
 namespace GLWrapperGen
 {
-	public class GLEnumerant
+	public class GLEnumerantGroup
 	{
-		public GLEnumerant ()
-		{
-		}
+		public string Namespace;
+		public GLGroup Group;
+		public string Type;
+		public int Start;
+		public int End;
+		public string Name;
+
+		public GLEnumerantGroup ()
+		{}
 	}
 }
 

@@ -24,6 +24,8 @@ namespace GLWrapperGen
 {
 	public class GLParameter
 	{
+		public string Name;
+		public GLType Type;
 		public GLParameter ()
 		{
 		}
