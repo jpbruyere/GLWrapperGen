@@ -95,11 +95,7 @@ typedef unsigned __int64 uint64_t;
         <type>typedef void *<name>GLeglImageOES</name>;</type>
         <type>typedef char <name>GLchar</name>;</type>
         <type>typedef char <name>GLcharARB</name>;</type>
-        <type name="GLhandleARB">#ifdef __APPLE__
-typedef void *GLhandleARB;
-#else
-typedef unsigned int GLhandleARB;
-#endif</type>
+        <type>typedef unsigned int <name>GLhandleARB</name>;</type>
         <type>typedef unsigned short <name>GLhalfARB</name>;</type>
         <type>typedef unsigned short <name>GLhalf</name>;</type>
         <type comment="Must be 32 bits">typedef GLint <name>GLfixed</name>;</type>
@@ -2134,7 +2130,7 @@ typedef unsigned int GLhandleARB;
         <enum value="0xFFFFFFFF" name="GL_ALL_BARRIER_BITS_EXT"/>
     </enums>
 
-    <enums namespace="OcclusionQueryEventMaskAMD">
+    <enums namespace="GL" group="OcclusionQueryEventMaskAMD">
         <enum value="0x00000001" name="GL_QUERY_DEPTH_PASS_EVENT_BIT_AMD"/>
         <enum value="0x00000002" name="GL_QUERY_DEPTH_FAIL_EVENT_BIT_AMD"/>
         <enum value="0x00000004" name="GL_QUERY_STENCIL_FAIL_EVENT_BIT_AMD"/>

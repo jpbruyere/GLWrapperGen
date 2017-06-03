@@ -3,10 +3,10 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">x86</Platform>
-    <ProjectGuid>{A9A7FA79-9AFB-435A-A89B-3083C0DB9D2A}</ProjectGuid>
+    <ProjectGuid>{4228C8E9-5904-423E-9AF0-C6F3DFDB1116}</ProjectGuid>
     <OutputType>Exe</OutputType>
-    <RootNamespace>GLWrapperGen</RootNamespace>
-    <AssemblyName>GLWrapperGen</AssemblyName>
+    <RootNamespace>tests</RootNamespace>
+    <AssemblyName>tests</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x86' ">
@@ -17,7 +17,8 @@
     <DefineConstants>DEBUG;</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <Externalconsole>true</Externalconsole>
+    <ConsolePause>false</ConsolePause>
+    <PlatformTarget>x86</PlatformTarget>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x86' ">
     <DebugType>full</DebugType>
@@ -25,39 +26,20 @@
     <OutputPath>bin\Release</OutputPath>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <Externalconsole>true</Externalconsole>
+    <ConsolePause>false</ConsolePause>
     <PlatformTarget>x86</PlatformTarget>
   </PropertyGroup>
-  <ItemGroup>
-    <Reference Include="System.Xml" />
-    <Reference Include="Mono.CSharp" />
-    <Reference Include="System" />
-    <Reference Include="System.Data" />
-    <Reference Include="System.Data.Linq" />
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Include="Program.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="GLFunction.cs" />
-    <Compile Include="GLParameter.cs" />
-    <Compile Include="glSpecClasses.cs" />
-  </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <ItemGroup>
-    <None Include="bin\Debug\generated\gl.cs">
-      <Link>gl.cs</Link>
-    </None>
-    <None Include="bin\Debug\generated\enums.cs">
+    <Compile Include="..\bin\Debug\generated\GL\commands.cs">
+      <Link>commands.cs</Link>
+    </Compile>
+    <Compile Include="..\bin\Debug\generated\GL\constants.cs">
+      <Link>constants.cs</Link>
+    </Compile>
+    <Compile Include="..\bin\Debug\generated\GL\enums.cs">
       <Link>enums.cs</Link>
-    </None>
-    <None Include="specs\gl.xml">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="specs\ctypeTocsharp.txt">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-  <ItemGroup>
-    <Folder Include="specs\" />
+    </Compile>
+    <Compile Include="Tests.cs" />
   </ItemGroup>
 </Project>

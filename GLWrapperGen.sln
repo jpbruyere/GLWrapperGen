@@ -3,12 +3,18 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GLWrapperGen", "GLWrapperGen.csproj", "{A9A7FA79-9AFB-435A-A89B-3083C0DB9D2A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "tests", "tests\tests.csproj", "{4228C8E9-5904-423E-9AF0-C6F3DFDB1116}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x86 = Debug|x86
 		Release|x86 = Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{4228C8E9-5904-423E-9AF0-C6F3DFDB1116}.Debug|x86.ActiveCfg = Debug|x86
+		{4228C8E9-5904-423E-9AF0-C6F3DFDB1116}.Debug|x86.Build.0 = Debug|x86
+		{4228C8E9-5904-423E-9AF0-C6F3DFDB1116}.Release|x86.ActiveCfg = Release|x86
+		{4228C8E9-5904-423E-9AF0-C6F3DFDB1116}.Release|x86.Build.0 = Release|x86
 		{A9A7FA79-9AFB-435A-A89B-3083C0DB9D2A}.Debug|x86.ActiveCfg = Debug|x86
 		{A9A7FA79-9AFB-435A-A89B-3083C0DB9D2A}.Debug|x86.Build.0 = Debug|x86
 		{A9A7FA79-9AFB-435A-A89B-3083C0DB9D2A}.Release|x86.ActiveCfg = Release|x86

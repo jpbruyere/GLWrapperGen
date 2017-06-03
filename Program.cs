@@ -27,179 +27,349 @@ using System.CodeDom.Compiler;
 using Microsoft.CSharp;
 using System.Linq;
 using System.Collections.Generic;
+using System.Text;
 
 namespace GLWrapperGen
 {	
 
 	class MainClass
 	{
-		static string strBaseNameSpace = "GTS";
-
-		static Dictionary<string, string> GLTypeDic = new Dictionary<string, string>();
-
 		public static void Main (string[] args)
 		{
 			Console.WriteLine ("Opengl C# Wrapper Generator");
 
 			if (Directory.Exists ("generated"))
 				Directory.Delete ("generated", true);
-			Directory.CreateDirectory ("generated");
 
 			XmlDocument glspec = new XmlDocument();
-			glspec.Load ("gl.xml");
+			glspec.Load ("specs/gl.xml");
 
 			buildGLTypeDic ();
-			//processEnums(glspec);
 
-			processCommands (glspec);
+			readTypes (glspec);
+			readEnums(glspec);
+			readCommands (glspec);
+
+			writeConstants ();
+			writeCSEnums2 ();
+			writeCSICalls ();
 		}
 
-		static void buildGLTypeDic(){
-			GLTypeDic.Add("GLboolean", "System.Boolean");
-			GLTypeDic.Add("GLuint", "System.UInt32");
-			GLTypeDic.Add("GLhandleARB", "System.UInt32");
-			GLTypeDic.Add("GLubyte", "System.Byte");
-			GLTypeDic.Add("GLintptr", "System.IntPtr");
+		public static string[] csReservedKeyword = new string [] {
+			"ref",
+			"object",
+			"in",
+			"out",
+			"params",
+			"string",
+			"event",
+		};
+		public static string[] extensions = new string[] {
+			"EXT",
+			"ARB",
+			"NV",
+			"NVX",
+			"ATI",
+			"3DLABS",
+			"SUN",
+			"SGI",
+			"SGIX",
+			"SGIS",
+			"INTEL",
+			"3DFX",
+			"IBM",
+			"MESA",
+			"GREMEDY",
+			"OML",
+			"OES",
+			"PGI",
+			"I3D",
+			"INGR",
+			"MTX",
+		};
 
-		}
+		public static string rootns = "Tetra";
+		public static int tabsCountForValue = 8;
 
-		static void processEnums(XmlDocument glspec){
-			CodeCompileUnit codeBase = new CodeCompileUnit ();
-			CodeNamespace BaseNameSpace = new CodeNamespace (strBaseNameSpace);
+		static Dictionary<string, string> CtoCSTypeDic = new Dictionary<string, string>();
+		static List<glTypeDef> GLTypes = new List<glTypeDef> ();
+		static Dictionary<string,List<string>> GLEnumGroups = new Dictionary<string, List<string>>();
+		static List<glEnumDef> GLEnums = new List<glEnumDef> ();
+		static List<glCommand> GLCommands =	new List<glCommand> ();
 
-			codeBase.Namespaces.Add (new CodeNamespace ());
-			codeBase.Namespaces.Add (BaseNameSpace);
-
-			//using 
-			codeBase.Namespaces [0].Imports.Add (new CodeNamespaceImport ("System"));
-
-			XmlNode groups = glspec.SelectSingleNode("/registry/groups");
-
-			foreach (XmlNode group in groups) {
-				string enumName = group.Attributes ["name"]?.Value;
-				if (string.IsNullOrEmpty (enumName))
+		static void readTypes(XmlDocument glspec){
+			XmlNode xmlTypes = glspec.SelectSingleNode ("/registry/types");
+			foreach (XmlNode xmlType in xmlTypes.SelectNodes("type")) {
+				string typeNameAttrib = xmlType.Attributes ["name"]?.Value?.Trim();
+				if (!string.IsNullOrEmpty (typeNameAttrib))
 					continue;
-				CodeTypeDeclaration e = new CodeTypeDeclaration (enumName);
-				e.IsEnum = true;
-				foreach (XmlNode v in group.ChildNodes) {
-					string enumItem = ToCameCase (v.Attributes ["name"]?.Value);
-					if (string.IsNullOrEmpty (enumItem))
-						continue;					
-					CodeMemberField ev = new CodeMemberField (enumName, enumItem);
-					e.Members.Add (ev);
-				}
-				BaseNameSpace.Types.Add (e);
+				glTypeDef gtd = new glTypeDef ();
+				gtd.name = xmlType.SelectSingleNode ("name")?.InnerXml?.Trim();
+				if (string.IsNullOrEmpty (gtd.name))
+					continue;
+				gtd.requires = xmlType.Attributes ["requires"]?.Value?.Trim();
+				gtd.api = xmlType.Attributes ["api"]?.Value;
+				gtd.ctype = xmlType.FirstChild?.Value?.Substring(8)?.Trim();
+				Console.WriteLine ("glType:{0}:{1} => {2}", gtd.api, gtd.name, gtd.ctype);
+				GLTypes.Add(gtd);
 			}
-
-			XmlNodeList enums = glspec.SelectNodes("/registry/enums");
-
-			foreach (XmlNode en in enums) {
-				string enumName = en.Attributes ["group"]?.Value;
-				if (string.IsNullOrEmpty (enumName) || string.Equals("SpecialNumbers",enumName)) {
-					//value has to be set for each occurence
-					foreach (XmlNode v in en.SelectNodes("enum")) {
-						string initValue = v.Attributes ["value"]?.Value;
-						string enumItem = ToCameCase (v.Attributes ["name"]?.Value);
-						foreach (CodeTypeDeclaration ctd in BaseNameSpace.Types) {
-							CodeMemberField ev = FindEnumByName (ctd, enumItem);
-							if (ev == null)
-								continue;
-							ev.InitExpression = new CodeSnippetExpression (initValue);							
-						}
-					}
-					continue;	
-				}
-				CodeTypeDeclaration e = FindEnumByName(BaseNameSpace, enumName, true);
-				foreach (XmlNode v in en.SelectNodes("enum")) {
-					string enumItem = ToCameCase (v.Attributes ["name"]?.Value);
-					CodeMemberField ev = FindEnumByName (e, enumItem, true);
-					ev.InitExpression = new CodePrimitiveExpression (v.Attributes ["value"]?.Value);
-				}
-			}
-
-			GenerateCSharpCode (codeBase, @"generated/enums.cs");
 		}
-
-		static void processCommands(XmlDocument glspec){
-			CodeCompileUnit codeBase = new CodeCompileUnit ();
-			CodeNamespace BaseNameSpace = new CodeNamespace (strBaseNameSpace);
-
-			codeBase.Namespaces.Add (new CodeNamespace ());
-			codeBase.Namespaces.Add (BaseNameSpace);
-
-			//using 
-			codeBase.Namespaces [0].Imports.Add (new CodeNamespaceImport ("System"));
-
-			CodeTypeDeclaration gl = new CodeTypeDeclaration ("GL");
-			gl.IsClass = true;
-			gl.IsPartial = true;
-			gl.Attributes = MemberAttributes.Public | MemberAttributes.Static;
-			BaseNameSpace.Types.Add (gl);
-
-			XmlNode cmds = glspec.SelectSingleNode("/registry/commands");
-
-			foreach (XmlNode cmd in cmds.ChildNodes) {
-				XmlNode proto = cmd.SelectSingleNode("proto"); 
-				CodeMemberMethod p = new CodeMemberMethod ();
-				p.Attributes = MemberAttributes.Public | MemberAttributes.Static;
-
-				XmlNode returnTypeNode = proto.SelectSingleNode ("ptype");
-				if (returnTypeNode != null) {
-					string rt = returnTypeNode.InnerXml;
-					if (rt == "GLenum") {
-						if (proto.Attributes ["group"] != null) {
-							p.ReturnType = new CodeTypeReference (proto.Attributes ["group"].Value);
-						} else
-							p.ReturnType = new CodeTypeReference ("System.UInt32");
-						
-					} else {
-						if (GLTypeDic.ContainsKey (rt))
-							p.ReturnType = new CodeTypeReference (GLTypeDic [rt]);
-						else
-							Console.WriteLine (rt);
-					}
+		static void readEnums(XmlDocument glspec){			
+			XmlNode xmlGroups = glspec.SelectSingleNode("/registry/groups");
+			foreach (XmlNode xmlGroup in xmlGroups.SelectNodes("group")) {
+				string grpName = xmlGroup.Attributes ["name"].Value;
+				List<string> enums = new List<string> ();
+				foreach (XmlNode xmlGrpItem in xmlGroup.SelectNodes("enum")) {
+					enums.Add (xmlGrpItem.Attributes ["name"].Value);	
 				}
-				string cmdName = proto.SelectSingleNode ("name").InnerXml.Substring (2);
-				if (cmdName.EndsWith ("NV"))
-					cmdName.Substring (0, cmdName.Length - 2);
+				GLEnumGroups [grpName] = enums;
+			}
+
+			XmlNodeList xmlEnums = glspec.SelectNodes("/registry/enums");
+			foreach (XmlNode xmlEnum in xmlEnums) {
+				glEnumDef def = new glEnumDef ();
+				def.group = xmlEnum.Attributes ["group"]?.Value;
+				def.ns = xmlEnum.Attributes ["namespace"]?.Value;
+				def.vendor = xmlEnum.Attributes ["vendor"]?.Value;
+
+				if (xmlEnum.Attributes ["type"]?.Value == "bitmask")
+					def.bitmask = true;
 				
-				p.Name = cmdName;
-				gl.Members.Add (p);
-
+				foreach (XmlNode xmlEnumValue in xmlEnum.SelectNodes("enum")) {					
+					def.values.Add (new glEnumValue () {
+						name = xmlEnumValue.Attributes ["name"]?.Value,
+						api = xmlEnumValue.Attributes ["api"]?.Value,
+						value = xmlEnumValue.Attributes ["value"]?.Value });
+				}
+				GLEnums.Add (def);
 			}				
+		}
+		static void readCommands(XmlDocument glspec){
+			XmlNodeList cmdsgroup = glspec.SelectNodes("/registry/commands");
 
-			GenerateCSharpCode (codeBase, @"generated/gl.cs");
+			foreach (XmlNode xmlCmds in cmdsgroup) {
+				string ns = xmlCmds.Attributes ["namespace"].Value;
+
+				foreach (XmlNode xmlCmd in xmlCmds.SelectNodes("command")) {
+					glCommand c = new glCommand ();
+					XmlNode nProto = xmlCmd.SelectSingleNode ("proto");
+					c.ns = ns;
+					c.name = nProto.SelectSingleNode ("name").InnerXml;
+					c.returnType = nProto.SelectSingleNode ("ptype")?.InnerXml;
+					foreach (XmlNode xmlParam in xmlCmd.SelectNodes ("param")) {
+						glParam glp = new glParam ();
+						glp.type = xmlParam.SelectSingleNode ("ptype")?.InnerXml;
+						glp.name = xmlParam.SelectSingleNode ("name")?.InnerXml;
+						glp.group = xmlParam.Attributes ["group"]?.Value;
+						c.paramList.Add (glp);
+					}
+					GLCommands.Add (c);
+				}
+			}
+		}
+		public const int cst = 10;
+
+		static void writeConstants () {
+			string outputFile = "constants.cs";
+			foreach (IGrouping<string,glEnumDef> edg in GLEnums.GroupBy(e=>e.ns)) {
+				string ns = edg.Key;
+				string outputPath = string.Format (@"generated/{0}", ns);
+				Directory.CreateDirectory (outputPath);
+				using (TextWriter tw = new StreamWriter (Path.Combine (outputPath, outputFile))) {
+					using (IndentedTextWriter itw = new IndentedTextWriter (tw)) {
+						itw.WriteLine ("// Autogenerated File");
+						itw.WriteLine ("using System;");
+						itw.WriteLine ("namespace {0}", rootns);
+						itw.WriteLine ("{");
+						itw.Indent++;
+						itw.WriteLine ("public static partial class {0}", ns);
+						itw.WriteLine ("{");
+						itw.Indent++;
+
+						foreach (glEnumDef edef in GLEnums.Where (gle=>string.IsNullOrEmpty(gle.group))) {
+							foreach (glEnumValue eval in edef.values) {
+								int tabs = (int)Math.Max (0, tabsCountForValue - Math.Floor ((double)eval.name.Length / 4.0));
+								itw.WriteLine ("public const uint {0}{1}= {2};",
+									eval.name, new String('\t',tabs) ,eval.value);
+							}
+						}
+
+						itw.Indent--;
+						itw.WriteLine ("}");
+						itw.Indent--;
+						itw.WriteLine ("}");
+					}
+				}
+			}
+		}
+		static void writeCSEnums2 () {
+			string outputFile = "enums.cs";
+			foreach (IGrouping<string,glEnumDef> edg in GLEnums.GroupBy(e=>e.ns)) {
+				string ns = edg.Key;
+				Console.WriteLine ("processing enums for {0}", ns);
+				string outputPath = string.Format (@"generated/{0}", ns);
+				Directory.CreateDirectory (outputPath);
+				using (TextWriter tw = new StreamWriter (Path.Combine (outputPath, outputFile))) {
+					using (IndentedTextWriter itw = new IndentedTextWriter (tw)) {
+						itw.WriteLine ("// Autogenerated File");
+						itw.WriteLine ("using System;");
+						itw.WriteLine ("namespace {0}", rootns);
+						itw.WriteLine ("{");
+						itw.Indent++;
+						itw.WriteLine ("public static partial class {0}", ns);
+						itw.WriteLine ("{");
+						itw.Indent++;
+						foreach (IGrouping<string,string> groupedGrp in GLEnumGroups.Keys.GroupBy (k=>GetExtFromGroupName(k))) {
+							Console.WriteLine (groupedGrp.Key);
+
+							foreach (string s in groupedGrp) {								
+								Console.WriteLine ("\t" + (groupedGrp.Key.Length>0? s.Remove(s.Length - groupedGrp.Key.Length):s));
+							}
+						}
+						foreach (string egrp in GLEnumGroups.Keys) {
+							List<string> grp = GLEnumGroups [egrp];
+							glEnumDef edef = GLEnums.Where (e => e.group == egrp).FirstOrDefault ();
+							if (edef != null) {
+								if (edef.bitmask)
+									itw.WriteLine ("[Flag]");
+							}
+							itw.WriteLine ("public enum {0}", egrp);
+							itw.WriteLine ("{");
+							itw.Indent++;
+							foreach (string en in grp) {
+								glEnumValue eval = null;
+								if (edef == null)
+									eval = GLEnums.SelectMany (gle => gle.values).
+										Where(evals=>evals.name == en).FirstOrDefault();
+								else
+									eval = edef.values.Where (ev => ev.name == en).FirstOrDefault ();
+								if (eval == null) {
+									eval = GLEnums.SelectMany (gle => gle.values).
+										Where(evals=>evals.name == en).FirstOrDefault();									
+									if (eval == null) {
+										Console.WriteLine ("enum val for {0} not found in enum values", en);
+										continue;
+									}
+								}
+								int tabs = (int)Math.Max (0, tabsCountForValue - Math.Floor ((double)eval.name.Length / 4.0));
+								itw.WriteLine ("{0}{1}= {2},", eval.name, new String('\t',tabs) ,eval.value);
+							}
+							itw.Indent--;
+							itw.WriteLine ("}\n");
+						}
+
+						itw.Indent--;
+						itw.WriteLine ("}");
+						itw.Indent--;
+						itw.WriteLine ("}");
+					}
+				}
+			}
+		}
+		/*
+		static void writeCSEnums () {
+			string outputFile = "enums.cs";
+			foreach (IGrouping<string,glEnumDef> edg in GLEnums.GroupBy(e=>e.ns)) {
+				string ns = edg.Key;
+				string outputPath = string.Format (@"generated/{0}", ns);
+				Directory.CreateDirectory (outputPath);
+				using (TextWriter tw = new StreamWriter(Path.Combine (outputPath,outputFile))) {
+					using (IndentedTextWriter itw = new IndentedTextWriter(tw))	{
+						itw.WriteLine ("// Autogenerated File");
+						itw.WriteLine ("using System;");
+						itw.WriteLine ("namespace {0}", rootns);
+						itw.WriteLine ("{");
+						itw.Indent++;
+						itw.WriteLine ("public static partial class {0}", ns);
+						itw.WriteLine ("{");
+						itw.Indent++;
+						foreach (glEnumDef ed in edg) {
+							if (ed.bitmask)
+								itw.WriteLine ("[Flag]");
+							itw.WriteLine ("public enum {0}", ed.group);
+							itw.WriteLine ("{");
+							itw.Indent++;
+							foreach (glEnumValue ev in ed.values) {
+								int tabs = (int)Math.Max (0, tabsCountForValue - Math.Floor ((double)ev.name.Length / 4.0));
+								itw.WriteLine ("{0}{1}= {2},", ev.name, new String('\t',tabs) ,ev.value);
+							}
+							itw.Indent--;
+							itw.WriteLine ("}\n");
+						}
+						itw.Indent--;
+						itw.WriteLine ("}");
+						itw.Indent--;
+						itw.WriteLine ("}");
+					}
+				}
+			}			
+		}*/
+		static void writeCSICalls () {
+			string outputFile = "commands.cs";
+			foreach (IGrouping<string,glCommand> edg in GLCommands.GroupBy(c=>c.ns)) {
+				string ns = edg.Key;
+				string outputPath = string.Format (@"generated/{0}", ns);
+				Directory.CreateDirectory (outputPath);
+				using (TextWriter tw = new StreamWriter(Path.Combine (outputPath,outputFile))) {
+					using (IndentedTextWriter itw = new IndentedTextWriter(tw))	{
+						itw.WriteLine ("// Autogenerated File");
+						itw.WriteLine ("using System;");
+						itw.WriteLine ("using System.Runtime.CompilerServices;");
+						itw.WriteLine ("namespace {0}", rootns);
+						itw.WriteLine ("{");
+						itw.Indent++;
+						itw.WriteLine ("public static partial class {0}", ns);
+						itw.WriteLine ("{");
+						itw.Indent++;
+						foreach (glCommand cmd in edg) {
+							string rt = "void";
+							if (!string.IsNullOrEmpty (cmd.returnType))
+								rt = cmd.returnType;
+							itw.WriteLine ("[MethodImplAttribute(MethodImplOptions.InternalCall)]");
+							itw.Write ("public static {0} {1} (", rt, cmd.name);
+							StringBuilder strparams = new StringBuilder();
+							foreach (glParam pm in cmd.paramList) {
+								string t = null;
+								string n = null;
+
+								if (!string.IsNullOrEmpty (pm.group)) {
+									if (GLEnumGroups.ContainsKey (pm.group))
+										t = pm.group;									
+								}
+								if (t == null) {
+									if (!string.IsNullOrEmpty (pm.type)) {										
+										t = getCSTypeFromGLType (pm.type);
+									} else {
+										t = "void*";
+										Console.WriteLine ("setting void* for:{0} param in {1}", pm.name, cmd.name);
+									}
+								}
+								if (n == null)
+									n = pm.name;
+								if (csReservedKeyword.Contains(n))
+									n = "_" + n;
+
+								strparams.Append (string.Format ("{0} {1}, ", t, n));
+							}
+							if (strparams.Length > 0) {								
+								strparams.Remove (strparams.Length - 2, 2);
+								itw.Write (strparams.ToString ());
+							}
+							itw.WriteLine (");");
+						}
+						itw.Indent--;
+						itw.WriteLine ("}");
+						itw.Indent--;
+						itw.WriteLine ("}");
+					}
+				}
+			}			
 		}
 
-		static CodeMemberField FindEnumByName (CodeTypeDeclaration typeDecl, string name, bool createIfNotFound = false)
-		{
-			foreach (CodeMemberField cmf in typeDecl.Members) {
-				if (cmf.Name == name)
-					return cmf;
-			}
-			if (!createIfNotFound)				
-				return null;
-			CodeMemberField e = new CodeMemberField ("", name);
-			typeDecl.Members.Add (e);
-			return e;
-		}
-		static CodeTypeDeclaration FindEnumByName(CodeNamespace ns, string name, bool createIfNotFound = false)
-		{
-			foreach (CodeTypeDeclaration ctd in ns.Types) {
-				if (ctd.Name == name)
-					return ctd;
-			}
-			if (!createIfNotFound)
-				return null;
-			CodeTypeDeclaration e = new CodeTypeDeclaration (name);
-			e.IsEnum = true;
-			ns.Types.Add (e);
-			return e;
-		}
 		static string ToCameCase(string str){
 			if (string.IsNullOrEmpty (str))
 				return null;
-			string[] tmps = str.Split (new char[] { '_' });
+			string[] tmps = str.Split (new char[] { '_' }, StringSplitOptions.RemoveEmptyEntries);
 
 			int ptr = 0;
 			if (string.Equals (tmps [0], "gl", StringComparison.OrdinalIgnoreCase))
@@ -208,31 +378,87 @@ namespace GLWrapperGen
 			if (char.IsDigit (tmps [ptr] [0]))
 				result += "GL";
 			while (ptr < tmps.Length) {
-				result += char.ToUpper (tmps [ptr] [0]) + tmps [ptr].Substring (1).ToLower();
+				if (tmps [ptr] != "BIT")
+					result += char.ToUpper (tmps [ptr] [0]) + tmps [ptr].Substring (1).ToLower();
 				ptr++;
 			}
 			return result;
 		}
 
-		static void GenerateCSharpCode (CodeCompileUnit codeBase, string file)
-		{
-			CodeDomProvider codeDomProvider = new CSharpCodeProvider ();
+		public static string getCSName(string str){
+			if (string.IsNullOrEmpty (str))
+				return null;
+			string[] tmps = str.Split (new char[] { '_' }, StringSplitOptions.RemoveEmptyEntries);
 
-			//On définit les options de génération de code
-			CodeGeneratorOptions options = new CodeGeneratorOptions ();
-			//On demande a ce que le code généré soit dans le même ordre que le code inséré
-			options.VerbatimOrder = false;
-			//options.BracingStyle = "C";
-			//options.BracingStyle = "C";
-			options.ElseOnClosing = true;
-			options.BlankLinesBetweenMembers = false;
-
-			using (IndentedTextWriter itw = new IndentedTextWriter (new StreamWriter (file, false), "\t")) {
-				//On demande la génération proprement dite
-				codeDomProvider.GenerateCodeFromCompileUnit (codeBase, itw, options);
-				itw.Flush ();
+			int ptr = 0;
+			if (string.Equals (tmps [0], "gl", StringComparison.OrdinalIgnoreCase))
+				ptr = 1;
+			string result = "";
+			if (char.IsDigit (tmps [ptr] [0]))
+				result += "GL";
+			while (ptr < tmps.Length) {
+				if (tmps [ptr] != "BIT" && tmps [ptr] != "MASK")
+					result += char.ToUpper (tmps [ptr] [0]) + tmps [ptr].Substring (1).ToLower();
+				ptr++;
 			}
-			Console.WriteLine ("C# code generated: " + file);
+			return result;
+		}
+
+		public static bool TryExtractExt(ref string name, out string ext) {
+			ext = "";
+			foreach (string e in MainClass.extensions) {
+				if (name.EndsWith (e)) {
+					ext = e;
+					name = name.Remove (name.Length - ext.Length);
+					if (name.EndsWith ("_"))
+						name = name.Remove (name.Length - 1);
+					return true;
+				}					
+			}
+			return false;
+		}
+		public static bool TryGetExt(string name, out string ext) {
+			ext = "";
+			foreach (string e in MainClass.extensions) {
+				if (name.EndsWith (e)) {
+					ext = e;
+					return true;
+				}					
+			}
+			return false;
+		}
+		public static string GetExtFromGroupName (string name){
+			foreach (string e in MainClass.extensions) {
+				if (name.EndsWith (e))
+					return e;
+			}
+			return "";
+		}
+
+		static void buildGLTypeDic(){
+			using (StreamReader sr = new StreamReader ("specs/ctypeTocsharp.txt")) {
+				while (!sr.EndOfStream) {
+					string[] l = sr.ReadLine ()?.Split (',');
+					if (l?.Length != 2)
+						throw new Exception ("invalid syntax in 'specs/ctypeTocsharp.txt'");				
+					CtoCSTypeDic.Add (l [0].Trim (), l [1].Trim ());
+				}
+			}
+		}
+
+		static string getCSTypeFromGLType (string strglt){
+			string strCt = strglt;
+			glTypeDef gtd = null;
+			while (strCt.StartsWith("GL")){
+				gtd = GLTypes.Where (gltt=>gltt.name == strCt).FirstOrDefault();
+				if (gtd == null)
+					break;
+				strCt = gtd.ctype;
+			}
+			if (gtd == null) {
+				return "NOTFOUND_" + strglt;
+			}
+			return CtoCSTypeDic.ContainsKey (strCt) ? CtoCSTypeDic [strCt] : "NOTFOUND_IN_CTOCSDIC_" + strCt;
 		}
 	}
 }

@@ -1,0 +1,23 @@
+unsigned int,	uint
+unsigned char,	byte
+void,			void
+signed char,	sbyte
+short,			short
+int,			int
+unsigned short,	ushort
+float,			float
+double,			double
+void *,			void*
+char,			byte
+ptrdiff_t,		NULL
+int64_t,		long
+uint64_t,		ulong
+khronos_int32_t,int
+khronos_int8_t,	sbyte
+khronos_uint8_t,byte
+khronos_float_t,float
+khronos_int64_t,long
+khronos_uint64_t,ulong
+khronos_intptr_t,System.IntPtr
+khronos_ssize_t,NULL
+GLintptr,		System.IntPtr
