@@ -188,17 +188,22 @@ namespace GLWrapperGen
 						itw.WriteLine ("public static partial class {0}", ns);
 						itw.WriteLine ("{");
 						itw.Indent++;
+						itw.WriteLine ("public static class All");
+						itw.WriteLine ("{");
+						itw.Indent++;
 
 						foreach (glEnumDef edef in GLEnums.Where (gle=>string.IsNullOrEmpty(gle.group))) {
 							foreach (glEnumValue eval in edef.values) {
 								if (!string.IsNullOrEmpty (eval.api) && eval.api!="gl")
 									continue;
-								int tabs = (int)Math.Max (0, tabsCountForCst - Math.Floor ((double)(eval.name.Length + 18) / 4.0));
+								string cstName = ToCamelCase (eval.name);
+								int tabs = (int)Math.Max (0, tabsCountForCst - Math.Floor ((double)(cstName.Length + 18) / 4.0));
 								itw.WriteLine ("public const uint {0}{1}= {2};",
-									eval.name, new String('\t',tabs) ,eval.value);
+									cstName, new String('\t',tabs) ,eval.value);
 							}
 						}
-
+						itw.Indent--;
+						itw.WriteLine ("}");
 						itw.Indent--;
 						itw.WriteLine ("}");
 						itw.Indent--;
@@ -225,43 +230,66 @@ namespace GLWrapperGen
 						itw.WriteLine ("{");
 						itw.Indent++;
 						foreach (IGrouping<string,string> groupedGrp in GLEnumGroups.Keys.GroupBy (k=>GetExtFromGroupName(k))) {
+							string ext = groupedGrp.Key;
+							if (!string.IsNullOrEmpty (ext)) {
+								itw.WriteLine ("public static partial class {0}", ext);
+								itw.WriteLine ("{");
+								itw.Indent++;
+							}
 							Console.WriteLine (groupedGrp.Key);
 
-							foreach (string s in groupedGrp) {								
-								Console.WriteLine ("\t" + (groupedGrp.Key.Length>0? s.Remove(s.Length - groupedGrp.Key.Length):s));
-							}
-						}
-						foreach (string egrp in GLEnumGroups.Keys) {
-							List<string> grp = GLEnumGroups [egrp];
-							glEnumDef edef = GLEnums.Where (e => e.group == egrp).FirstOrDefault ();
-							if (edef != null) {
-								if (edef.bitmask)
-									itw.WriteLine ("[Flags]");
-							}
-							itw.WriteLine ("public enum {0} : uint", egrp);
-							itw.WriteLine ("{");
-							itw.Indent++;
-							foreach (string en in grp) {
-								glEnumValue eval = null;
-								if (edef == null)
-									eval = GLEnums.SelectMany (gle => gle.values).
-										Where(evals=>evals.name == en).FirstOrDefault();
-								else
-									eval = edef.values.Where (ev => ev.name == en).FirstOrDefault ();
-								if (eval == null) {
-									eval = GLEnums.SelectMany (gle => gle.values).
-										Where(evals=>evals.name == en).FirstOrDefault();									
-									if (eval == null) {
-										Console.WriteLine ("enum val for {0} not found in enum values", en);
-										continue;
-									}
+							foreach (string egrp in groupedGrp) {
+								glEnumDef edef = GLEnums.Where (e => e.group == egrp).FirstOrDefault ();
+								if (edef != null) {
+									if (edef.bitmask)
+										itw.WriteLine ("[Flags]");
 								}
-								int tabs = (int)Math.Max (0, tabsCountForValue - Math.Floor ((double)eval.name.Length / 4.0));
-								itw.WriteLine ("{0}{1}= {2},", eval.name, new String('\t',tabs) ,eval.value);
+								string enumName = egrp;
+								if (!string.IsNullOrEmpty (ext))
+									enumName = enumName.Remove (enumName.Length - ext.Length);
+								itw.WriteLine ("public enum {0} : uint", enumName);
+								itw.WriteLine ("{");
+								itw.Indent++;
+								foreach (string en in GLEnumGroups[egrp]) {
+									glEnumValue eval = null;
+									if (edef == null)
+										eval = GLEnums.SelectMany (gle => gle.values).
+											Where(evals=>evals.name == en).FirstOrDefault();
+									else
+										eval = edef.values.Where (ev => ev.name == en).FirstOrDefault ();
+									if (eval == null) {
+										eval = GLEnums.SelectMany (gle => gle.values).
+											Where(evals=>evals.name == en).FirstOrDefault();									
+										if (eval == null) {
+											Console.WriteLine ("enum val for {0} not found in enum values", en);
+											continue;
+										}
+									}
+									string enumValueName = ToCamelCase(eval.name);
+//									if (!string.IsNullOrEmpty (ext)) {
+//										if (eval.name.EndsWith (ext))
+//											enumValueName = eval.name.Remove (eval.name.Length - ext.Length - 1);
+//										else
+//											continue;
+//									}										
+									int tabs = (int)Math.Max (0, tabsCountForValue - Math.Floor ((double)enumValueName.Length / 4.0));
+									itw.WriteLine ("{0}{1}= {2},", enumValueName, new String('\t',tabs) ,eval.value);
+								}
+								itw.Indent--;
+								itw.WriteLine ("}\n");
 							}
-							itw.Indent--;
-							itw.WriteLine ("}\n");
+
+							if (!string.IsNullOrEmpty (groupedGrp.Key)) {
+								itw.Indent--;
+								itw.WriteLine ("}\n");
+							}
 						}
+//						foreach (string egrp in GLEnumGroups.Keys) {
+//							List<string> grp = GLEnumGroups [egrp];
+//
+//							itw.Indent--;
+//							itw.WriteLine ("}\n");
+//						}
 
 						itw.Indent--;
 						itw.WriteLine ("}");
@@ -338,8 +366,12 @@ namespace GLWrapperGen
 								string n = null;
 
 								if (!string.IsNullOrEmpty (pm.group)) {
-									if (GLEnumGroups.ContainsKey (pm.group))
-										t = pm.group;									
+									if (GLEnumGroups.ContainsKey (pm.group)) {
+										string ext;
+										t = pm.group;
+										if (TryExtractExt (ref t, out ext))
+											t = ext + "." + t;
+									}									
 								}
 								if (t == null) {
 									if (!string.IsNullOrEmpty (pm.type)) {										
@@ -431,7 +463,7 @@ namespace GLWrapperGen
 			}			
 		}
 
-		static string ToCameCase(string str){
+		static string ToCamelCase(string str){
 			if (string.IsNullOrEmpty (str))
 				return null;
 			string[] tmps = str.Split (new char[] { '_' }, StringSplitOptions.RemoveEmptyEntries);

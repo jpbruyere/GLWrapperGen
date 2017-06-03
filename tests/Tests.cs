@@ -31,7 +31,7 @@ namespace tests
 		}
 		static void test(Array pa){
 			Console.WriteLine (pa.Length);
-
+			//GL.ColorMaterialFace;
 			
 		}
 	}
