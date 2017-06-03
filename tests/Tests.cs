@@ -26,9 +26,13 @@ namespace tests
 	public static class Tests
 	{
 		static void Main ()
-		{
-			
+		{			
+			test (new int[] { 1 });
+		}
+		static void test(Array pa){
+			Console.WriteLine (pa.Length);
 
+			
 		}
 	}
 }

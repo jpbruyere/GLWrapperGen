@@ -1,15 +1,15 @@
 unsigned int,	uint
 unsigned char,	byte
-void,			void
+void,			IntPtr
 signed char,	sbyte
 short,			short
 int,			int
 unsigned short,	ushort
 float,			float
 double,			double
-void *,			void*
+void *,			IntPtr
 char,			byte
-ptrdiff_t,		NULL
+ptrdiff_t,		IntPtr
 int64_t,		long
 uint64_t,		ulong
 khronos_int32_t,int
@@ -19,5 +19,9 @@ khronos_float_t,float
 khronos_int64_t,long
 khronos_uint64_t,ulong
 khronos_intptr_t,System.IntPtr
-khronos_ssize_t,NULL
+khronos_ssize_t,IntPtr
 GLintptr,		System.IntPtr
+void (,			IntPtr
+struct _cl_context,IntPtr
+struct _cl_event,IntPtr
+struct __GLsync *,IntPtr
