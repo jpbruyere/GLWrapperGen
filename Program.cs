@@ -89,6 +89,11 @@ namespace GLWrapperGen
 			"I3D",
 			"INGR",
 			"MTX",
+			"APPLE",
+			"QCOM",
+			"IMG",
+			"KHR",
+			"AMD"
 		};
 
 		public static string rootns = "Tetra";
@@ -236,7 +241,6 @@ namespace GLWrapperGen
 								itw.WriteLine ("{");
 								itw.Indent++;
 							}
-							Console.WriteLine (groupedGrp.Key);
 
 							foreach (string egrp in groupedGrp) {
 								glEnumDef edef = GLEnums.Where (e => e.group == egrp).FirstOrDefault ();
@@ -266,12 +270,6 @@ namespace GLWrapperGen
 										}
 									}
 									string enumValueName = ToCamelCase(eval.name);
-//									if (!string.IsNullOrEmpty (ext)) {
-//										if (eval.name.EndsWith (ext))
-//											enumValueName = eval.name.Remove (eval.name.Length - ext.Length - 1);
-//										else
-//											continue;
-//									}										
 									int tabs = (int)Math.Max (0, tabsCountForValue - Math.Floor ((double)enumValueName.Length / 4.0));
 									itw.WriteLine ("{0}{1}= {2},", enumValueName, new String('\t',tabs) ,eval.value);
 								}
@@ -284,12 +282,6 @@ namespace GLWrapperGen
 								itw.WriteLine ("}\n");
 							}
 						}
-//						foreach (string egrp in GLEnumGroups.Keys) {
-//							List<string> grp = GLEnumGroups [egrp];
-//
-//							itw.Indent--;
-//							itw.WriteLine ("}\n");
-//						}
 
 						itw.Indent--;
 						itw.WriteLine ("}");
@@ -354,46 +346,65 @@ namespace GLWrapperGen
 						itw.WriteLine ("public static partial class {0}", ns);
 						itw.WriteLine ("{");
 						itw.Indent++;
-						foreach (glCommand cmd in edg) {
-							string rt = "void";
-							if (!string.IsNullOrEmpty (cmd.returnType))
-								rt = getCSTypeFromGLType(cmd.returnType);
-							itw.WriteLine ("[MethodImplAttribute(MethodImplOptions.InternalCall)]");
-							itw.Write ("public static extern {0} {1} (", rt, cmd.name);
-							StringBuilder strparams = new StringBuilder();
-							foreach (glParam pm in cmd.paramList) {
-								string t = null;
-								string n = null;
+						foreach (IGrouping<string,glCommand> groupedCmds in edg.GroupBy (k=>GetExtFromGroupName(k.name))) {
+							string ext = groupedCmds.Key;
 
-								if (!string.IsNullOrEmpty (pm.group)) {
-									if (GLEnumGroups.ContainsKey (pm.group)) {
-										string ext;
-										t = pm.group;
-										if (TryExtractExt (ref t, out ext))
-											t = ext + "." + t;
-									}									
-								}
-								if (t == null) {
-									if (!string.IsNullOrEmpty (pm.type)) {										
-										t = getCSTypeFromGLType (pm.type);
-									} else {
-										t = "Array";
-										Console.WriteLine ("setting Array for:{0} param in {1}", pm.name, cmd.name);
+							if (!string.IsNullOrEmpty (ext)) {
+								if (char.IsDigit (ext [0]))
+									ext = "_" + ext;
+								itw.WriteLine ("public static partial class {0}", ext);
+								itw.WriteLine ("{");
+								itw.Indent++;
+							}
+							foreach (glCommand cmd in groupedCmds) {
+								string rt = "void";
+								string cmdName = cmd.name;
+								if (!string.IsNullOrEmpty (ext))
+									cmdName = cmdName.Remove (cmdName.Length - ext.Length);
+								if (!string.IsNullOrEmpty (cmd.returnType))
+									rt = getCSTypeFromGLType(cmd.returnType);
+								itw.WriteLine ("[MethodImplAttribute(MethodImplOptions.InternalCall)]");
+								itw.Write ("public static extern {0} {1} (", rt, cmdName);
+								StringBuilder strparams = new StringBuilder();
+								foreach (glParam pm in cmd.paramList) {
+									string t = null;
+									string n = null;
+
+									if (!string.IsNullOrEmpty (pm.group)) {
+										if (GLEnumGroups.ContainsKey (pm.group)) {
+											t = pm.group;
+											string extt;
+											if (TryExtractExt (ref t, out extt))
+												t = extt + "." + t;
+										}									
 									}
-								}
-								if (n == null)
-									n = pm.name;
-								if (csReservedKeyword.Contains(n))
-									n = "_" + n;
+									if (t == null) {
+										if (!string.IsNullOrEmpty (pm.type)) {										
+											t = getCSTypeFromGLType (pm.type);
+										} else {
+											t = "Array";
+											Console.WriteLine ("setting Array for:{0} param in {1}", pm.name, cmd.name);
+										}
+									}
+									if (n == null)
+										n = pm.name;
+									if (csReservedKeyword.Contains(n))
+										n = "_" + n;
 
-								strparams.Append (string.Format ("{0} {1}, ", t, n));
+									strparams.Append (string.Format ("{0} {1}, ", t, n));
+								}
+								if (strparams.Length > 0) {								
+									strparams.Remove (strparams.Length - 2, 2);
+									itw.Write (strparams.ToString ());
+								}
+								itw.WriteLine (");");
 							}
-							if (strparams.Length > 0) {								
-								strparams.Remove (strparams.Length - 2, 2);
-								itw.Write (strparams.ToString ());
+							if (!string.IsNullOrEmpty (groupedCmds.Key)) {
+								itw.Indent--;
+								itw.WriteLine ("}\n");
 							}
-							itw.WriteLine (");");
 						}
+
 						itw.Indent--;
 						itw.WriteLine ("}");
 						itw.Indent--;
